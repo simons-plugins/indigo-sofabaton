@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<Actions>
+	<Action id="sendKeyPress" deviceFilter="self.sofabatonActivity">
+		<Name>Send Key Press</Name>
+		<CallbackMethod>sendKeyPress</CallbackMethod>
+		<ConfigUI>
+			<Field id="keyLabel" type="label">
+				<Label>Send a remote key press to the active activity.</Label>
+			</Field>
+			<Field type="menu" id="keyName" defaultValue="ok">
+				<Label>Key:</Label>
+				<List>
+					<Option value="up">Up</Option>
+					<Option value="down">Down</Option>
+					<Option value="left">Left</Option>
+					<Option value="right">Right</Option>
+					<Option value="ok">OK</Option>
+					<Option value="back">Back</Option>
+					<Option value="home">Home</Option>
+					<Option value="menu">Menu</Option>
+					<Option value="volume_up">Volume Up</Option>
+					<Option value="volume_down">Volume Down</Option>
+					<Option value="channel_up">Channel Up</Option>
+					<Option value="channel_down">Channel Down</Option>
+					<Option value="mute">Mute</Option>
+					<Option value="guide">Guide</Option>
+					<Option value="rewind">Rewind</Option>
+					<Option value="play">Play</Option>
+					<Option value="fast_forward">Fast Forward</Option>
+					<Option value="dvr">DVR</Option>
+					<Option value="pause">Pause</Option>
+					<Option value="exit">Exit</Option>
+					<Option value="red">Red</Option>
+					<Option value="green">Green</Option>
+					<Option value="yellow">Yellow</Option>
+					<Option value="blue">Blue</Option>
+					<Option value="a">A</Option>
+					<Option value="b">B</Option>
+					<Option value="c">C</Option>
+				</List>
+			</Field>
+		</ConfigUI>
+	</Action>
+
+	<Action id="sendMacroKey" deviceFilter="self.sofabatonActivity">
+		<Name>Send Macro Key</Name>
+		<CallbackMethod>sendMacroKey</CallbackMethod>
+		<ConfigUI>
+			<Field id="macroLabel" type="label">
+				<Label>Send a macro key press. Enter the key ID from the activity's macro list.</Label>
+			</Field>
+			<Field type="textfield" id="macroKeyId" defaultValue="">
+				<Label>Macro Key ID:</Label>
+			</Field>
+		</ConfigUI>
+	</Action>
+
+	<Action id="sendFavoriteKey" deviceFilter="self.sofabatonActivity">
+		<Name>Send Favorite Key</Name>
+		<CallbackMethod>sendFavoriteKey</CallbackMethod>
+		<ConfigUI>
+			<Field id="favLabel" type="label">
+				<Label>Send a favorite key press. Enter the key ID and device ID from the activity's favorites list.</Label>
+			</Field>
+			<Field type="textfield" id="favoriteKeyId" defaultValue="">
+				<Label>Favorite Key ID:</Label>
+			</Field>
+			<Field type="textfield" id="favoriteDeviceId" defaultValue="">
+				<Label>Device ID:</Label>
+			</Field>
+		</ConfigUI>
+	</Action>
+
+	<Action id="refreshActivities">
+		<Name>Refresh Activities from Hub</Name>
+		<CallbackMethod>refreshActivities</CallbackMethod>
+		<ConfigUI>
+			<Field id="refreshLabel" type="label">
+				<Label>Queries the Sofabaton hub for all activities and creates/updates Indigo devices.</Label>
+			</Field>
+		</ConfigUI>
+	</Action>
+
+	<Action id="stopAllActivities">
+		<Name>Stop All Activities</Name>
+		<CallbackMethod>stopAllActivities</CallbackMethod>
+		<ConfigUI>
+			<Field id="stopLabel" type="label">
+				<Label>Turns off all active activities on the Sofabaton hub.</Label>
+			</Field>
+		</ConfigUI>
+	</Action>
+</Actions>

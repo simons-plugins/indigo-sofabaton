@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<Devices>
+	<!-- The Sofabaton X2 Hub itself -->
+	<Device type="custom" id="sofabatonHub" allowUserCreation="true">
+		<Name>Sofabaton Hub</Name>
+		<ConfigUI>
+			<Field id="macAddress" type="textfield" defaultValue="">
+				<Label>Hub MAC Address:</Label>
+			</Field>
+			<Field id="macHelp" type="label" fontSize="small" fontColor="darkgray" alignWithControl="true">
+				<Label>12-character hex MAC (e.g. 80F1B298CA98). Found via mDNS discovery or Sofabaton app.</Label>
+			</Field>
+		</ConfigUI>
+		<UiDisplayStateId>connectionStatus</UiDisplayStateId>
+		<States>
+			<State id="connectionStatus">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Connection Status</TriggerLabel>
+				<ControlPageLabel>Connection</ControlPageLabel>
+			</State>
+			<State id="activeActivity">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Active Activity Changed</TriggerLabel>
+				<ControlPageLabel>Active Activity</ControlPageLabel>
+			</State>
+			<State id="activeActivityId">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Active Activity ID Changed</TriggerLabel>
+				<ControlPageLabel>Active Activity ID</ControlPageLabel>
+			</State>
+		</States>
+	</Device>
+
+	<!-- An Activity on the Sofabaton (e.g. "Watch TV", "Listen to Music") -->
+	<Device type="relay" id="sofabatonActivity" allowUserCreation="false">
+		<Name>Sofabaton Activity</Name>
+		<ConfigUI>
+			<Field id="hubDevice" type="textfield" hidden="true">
+				<Label>Hub Device ID:</Label>
+			</Field>
+			<Field id="activityId" type="textfield" hidden="true">
+				<Label>Activity ID:</Label>
+			</Field>
+			<Field id="activityName" type="textfield" hidden="true">
+				<Label>Activity Name:</Label>
+			</Field>
+		</ConfigUI>
+		<States>
+			<State id="onOffState">
+				<ValueType>Boolean</ValueType>
+				<TriggerLabel>Activity Active</TriggerLabel>
+				<ControlPageLabel>Activity Status</ControlPageLabel>
+			</State>
+		</States>
+	</Device>
+</Devices>

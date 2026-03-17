@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<PluginConfig>
+	<Field id="topLabel" type="label" fontSize="small" fontColor="darkgray">
+		<Label>Configure MQTT broker connection. The Sofabaton X2 hub must be configured to connect to the same broker.</Label>
+	</Field>
+
+	<Field id="sep0" type="separator"/>
+
+	<Field id="brokerLabel" type="label" fontColor="darkgray" fontSize="small">
+		<Label>MQTT Broker Settings</Label>
+	</Field>
+
+	<Field id="mqttBrokerHost" type="textfield" defaultValue="localhost">
+		<Label>Broker Host:</Label>
+	</Field>
+
+	<Field id="mqttBrokerPort" type="textfield" defaultValue="1883">
+		<Label>Broker Port:</Label>
+	</Field>
+
+	<Field id="mqttUsername" type="textfield" defaultValue="">
+		<Label>Username (optional):</Label>
+	</Field>
+
+	<Field id="mqttPassword" type="textfield" defaultValue="" secure="true">
+		<Label>Password (optional):</Label>
+	</Field>
+
+	<Field id="sep1" type="separator"/>
+
+	<Field id="hubLabel" type="label" fontColor="darkgray" fontSize="small">
+		<Label>Sofabaton Hub</Label>
+	</Field>
+
+	<Field id="hubMac" type="textfield" defaultValue="">
+		<Label>Hub MAC Address:</Label>
+	</Field>
+	<Field id="macHelp" type="label" fontSize="small" fontColor="darkgray" alignWithControl="true">
+		<Label>12-character uppercase hex MAC (e.g. 80F1B298CA98). Used in MQTT topic paths.</Label>
+	</Field>
+
+	<Field id="sep2" type="separator"/>
+
+	<Field id="autoDiscover" type="checkbox" defaultValue="true">
+		<Label>Auto-discover activities on connect: </Label>
+	</Field>
+
+	<Field id="sep3" type="separator"/>
+
+	<Field id="showDebugInfo" type="checkbox" defaultValue="false">
+		<Label>Enable debug logging: </Label>
+	</Field>
+
+	<Field id="logMqtt" type="checkbox" defaultValue="false"
+		visibleBindingId="showDebugInfo" visibleBindingValue="true">
+		<Label>Log all MQTT messages: </Label>
+	</Field>
+</PluginConfig>

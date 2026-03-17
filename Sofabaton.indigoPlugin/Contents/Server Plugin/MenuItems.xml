@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<MenuItems>
+	<MenuItem id="discoverHub">
+		<Name>Discover Hub (mDNS)</Name>
+		<CallbackMethod>discoverHub</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="refreshActivities">
+		<Name>Refresh Activities</Name>
+		<CallbackMethod>refreshActivitiesMenu</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="listMacroKeys">
+		<Name>List Macro Keys (Event Log)</Name>
+		<CallbackMethod>listMacroKeys</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="listFavoriteKeys">
+		<Name>List Favorite Keys (Event Log)</Name>
+		<CallbackMethod>listFavoriteKeys</CallbackMethod>
+	</MenuItem>
+</MenuItems>
