@@ -12,9 +12,8 @@ import time
 import threading
 
 # Add bundled packages to path
-_packages_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Packages"
-)
+# Indigo sets cwd to "Contents/Server Plugin/" — Packages is at "../Packages/"
+_packages_path = os.path.normpath(os.path.join(os.getcwd(), "..", "Packages"))
 if os.path.isdir(_packages_path) and _packages_path not in sys.path:
     sys.path.insert(0, _packages_path)
 
@@ -100,6 +99,7 @@ class Plugin(indigo.PluginBase):
         self._stop_mqtt()
 
     def deviceStartComm(self, dev):
+        super().deviceStartComm(dev)
         dev.stateListOrDisplayStateIdChanged()
 
         if dev.deviceTypeId == "sofabatonHub":
@@ -114,7 +114,7 @@ class Plugin(indigo.PluginBase):
                     self._start_mqtt()
 
     def deviceStopComm(self, dev):
-        pass
+        super().deviceStopComm(dev)
 
     # -------------------------------------------------------------------------
     # MQTT connection management
@@ -378,11 +378,12 @@ class Plugin(indigo.PluginBase):
             act_id = int(dev.pluginProps.get("activityId", 0))
             if act_id in self._activities:
                 is_on = self._activities[act_id]["state"] == "on"
-                dev.updateStateOnServer("onOffState", is_on)
-                if is_on:
-                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
-                else:
-                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                if dev.onState != is_on:
+                    dev.updateStateOnServer("onOffState", is_on)
+                    if is_on:
+                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                    else:
+                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
 
     def _update_hub_connection(self, status):
         if self._hub_dev_id:
@@ -512,14 +513,21 @@ class Plugin(indigo.PluginBase):
                 self.logger.error("Failed to deactivate '%s'" % act_name)
 
         elif action.deviceAction == indigo.kDeviceAction.Toggle:
-            if dev.onState:
-                self.actionControlDevice(
-                    type("Action", (), {"deviceAction": indigo.kDeviceAction.TurnOff})(), dev
+            new_state = not dev.onState
+            if self._send_activity_control(act_id, "on" if new_state else "off"):
+                self.logger.info("%s '%s'" % ("Activated" if new_state else "Deactivated", act_name))
+                dev.updateStateOnServer("onOffState", new_state)
+                dev.updateStateImageOnServer(
+                    indigo.kStateImageSel.PowerOn if new_state else indigo.kStateImageSel.PowerOff
                 )
+                if new_state:
+                    for other_dev in indigo.devices.iter("self.sofabatonActivity"):
+                        if other_dev.id != dev.id:
+                            other_dev.updateStateOnServer("onOffState", False)
+                            other_dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                self._update_hub_active_activity(act_id if new_state else None)
             else:
-                self.actionControlDevice(
-                    type("Action", (), {"deviceAction": indigo.kDeviceAction.TurnOn})(), dev
-                )
+                self.logger.error("Failed to toggle '%s'" % act_name)
 
         elif action.deviceAction == indigo.kDeviceAction.RequestStatus:
             self._request_activity_list()
