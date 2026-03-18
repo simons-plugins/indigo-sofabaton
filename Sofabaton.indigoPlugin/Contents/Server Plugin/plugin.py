@@ -631,9 +631,10 @@ class Plugin(indigo.PluginBase):
     # -------------------------------------------------------------------------
 
     def discoverHub(self):
-        self.logger.info("Searching for Sofabaton hub via mDNS...")
+        self.logger.info("Searching for Sofabaton hubs via mDNS...")
         try:
             from zeroconf import Zeroconf, ServiceBrowser
+            from protocol_const import MDNS_X1, MDNS_X2, HUB_VERSIONS
 
             found = []
 
@@ -650,6 +651,7 @@ class Plugin(indigo.PluginBase):
                             "port": info.port,
                             "mac": props.get("MAC", ""),
                             "properties": props,
+                            "stype": stype,
                         })
 
                 def remove_service(self, zc, stype, name):
@@ -660,34 +662,22 @@ class Plugin(indigo.PluginBase):
 
             zc = Zeroconf()
             listener = Listener()
-            ServiceBrowser(zc, "_sofabaton_hub._udp.local.", listener)
+            ServiceBrowser(zc, MDNS_X2, listener)
+            ServiceBrowser(zc, MDNS_X1, listener)
             time.sleep(3)
             zc.close()
 
             if found:
-                hub = found[0]
-                mac = hub["mac"].upper().replace(":", "").replace("-", "")
-                self.logger.info(
-                    "Found Sofabaton hub: %s (MAC: %s, host: %s)"
-                    % (hub["name"], mac, hub["host"])
-                )
-                if len(found) > 1:
-                    for h in found[1:]:
-                        self.logger.info(
-                            "Also found: %s (MAC: %s, host: %s)"
-                            % (h["name"], h["mac"], h["host"])
-                        )
-                # Auto-save MAC to plugin prefs
-                if mac and mac != self.hubMac:
-                    self.hubMac = mac
-                    self.pluginPrefs["hubMac"] = mac
-                    self.logger.info("Hub MAC saved to plugin preferences: %s" % mac)
-                    # Connect with the discovered MAC
-                    if not self._mqtt_connected:
-                        self._start_mqtt()
-                    else:
-                        self._stop_mqtt()
-                        self._start_mqtt()
+                for hub in found:
+                    mac = hub["mac"].upper().replace(":", "").replace("-", "")
+                    hver = hub["properties"].get("HVER", "")
+                    model = HUB_VERSIONS.get(hver, "Unknown")
+                    ip = hub["host"].rstrip(".")
+                    self.logger.info(
+                        "Found Sofabaton %s hub: %s (MAC: %s, host: %s)"
+                        % (model, hub["name"], mac, ip)
+                    )
+                    self._create_discovered_hub(hub, mac)
             else:
                 self.logger.info("No Sofabaton hubs found. Ensure hub is on the same network.")
 
@@ -696,6 +686,68 @@ class Plugin(indigo.PluginBase):
         except Exception as exc:
             self.logger.error("mDNS discovery failed: %s" % exc)
             self.logger.exception(exc)
+
+    def _create_discovered_hub(self, hub_info, mac):
+        """Create or update an Indigo device for a discovered hub."""
+        from protocol_const import HUB_VERSIONS
+
+        hver = hub_info["properties"].get("HVER", "")
+        model = HUB_VERSIONS.get(hver, "Unknown")
+        ip = hub_info["host"].rstrip(".")
+
+        if model in ("X1", "X1S"):
+            # X1/X1S hub — uses TCP transport
+            device_type = "sofabatonX1Hub"
+            # Check if hub already exists by MAC
+            for dev in indigo.devices.iter("self.sofabatonX1Hub"):
+                if dev.pluginProps.get("macAddress", "").upper() == mac:
+                    self.logger.info("X1 hub already exists: %s" % dev.name)
+                    # Update IP if changed
+                    if dev.pluginProps.get("hubIp", "") != ip:
+                        props = dev.pluginProps
+                        props["hubIp"] = ip
+                        dev.replacePluginPropsOnServer(props)
+                        self.logger.info("Updated hub IP to %s" % ip)
+                    return
+
+            dev_name = "Sofabaton %s Hub" % model
+            props = {
+                "hubIp": ip,
+                "macAddress": mac,
+                "hubModel": model,
+                "listenPort": "8200",
+            }
+            try:
+                create_kwargs = {
+                    "protocol": indigo.kProtocol.Plugin,
+                    "deviceTypeId": device_type,
+                    "name": dev_name,
+                    "props": props,
+                }
+                if self.deviceFolderId:
+                    create_kwargs["folder"] = self.deviceFolderId
+                new_dev = indigo.device.create(**create_kwargs)
+                new_dev.updateStateOnServer("connectionStatus", "disconnected")
+                new_dev.updateStateOnServer("activeActivity", "off")
+                new_dev.updateStateOnServer("activeActivityId", 0)
+                new_dev.updateStateOnServer("hubModel", model)
+                new_dev.updateStateOnServer("deviceCount", 0)
+                new_dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                self.logger.info("Created %s hub device: %s (IP: %s)" % (model, dev_name, ip))
+            except Exception as exc:
+                self.logger.error("Failed to create X1 hub device: %s" % exc)
+
+        else:
+            # X2 hub — uses MQTT transport
+            if mac and mac != self.hubMac:
+                self.hubMac = mac
+                self.pluginPrefs["hubMac"] = mac
+                self.logger.info("Hub MAC saved to plugin preferences: %s" % mac)
+                if not self._mqtt_connected:
+                    self._start_mqtt()
+                else:
+                    self._stop_mqtt()
+                    self._start_mqtt()
 
     def refreshActivitiesMenu(self):
         if not self._mqtt_connected:
