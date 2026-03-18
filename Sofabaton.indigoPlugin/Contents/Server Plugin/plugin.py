@@ -615,11 +615,29 @@ class Plugin(indigo.PluginBase):
             zc.close()
 
             if found:
-                for hub in found:
-                    self.logger.info(
-                        "Found Sofabaton hub: %s (MAC: %s, host: %s)"
-                        % (hub["name"], hub["mac"], hub["host"])
-                    )
+                hub = found[0]
+                mac = hub["mac"].upper().replace(":", "").replace("-", "")
+                self.logger.info(
+                    "Found Sofabaton hub: %s (MAC: %s, host: %s)"
+                    % (hub["name"], mac, hub["host"])
+                )
+                if len(found) > 1:
+                    for h in found[1:]:
+                        self.logger.info(
+                            "Also found: %s (MAC: %s, host: %s)"
+                            % (h["name"], h["mac"], h["host"])
+                        )
+                # Auto-save MAC to plugin prefs
+                if mac and mac != self.hubMac:
+                    self.hubMac = mac
+                    self.pluginPrefs["hubMac"] = mac
+                    self.logger.info("Hub MAC saved to plugin preferences: %s" % mac)
+                    # Connect with the discovered MAC
+                    if not self._mqtt_connected:
+                        self._start_mqtt()
+                    else:
+                        self._stop_mqtt()
+                        self._start_mqtt()
             else:
                 self.logger.info("No Sofabaton hubs found. Ensure hub is on the same network.")
 
@@ -700,6 +718,7 @@ class Plugin(indigo.PluginBase):
         new_user = valuesDict.get("mqttUsername", "")
         new_pass = valuesDict.get("mqttPassword", "")
         new_mac = valuesDict.get("hubMac", "").upper().replace(":", "").replace("-", "")
+        self.logger.info("Config saved — broker: %s:%d, MAC: '%s'" % (new_host, new_port, new_mac))
         self.autoDiscover = valuesDict.get("autoDiscover", True)
 
         reconnect_needed = (
