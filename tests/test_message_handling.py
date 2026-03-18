@@ -103,16 +103,14 @@ class TestActivityStateHandling:
         assert plugin._activities[1]["state"] == "off"
         assert plugin._activities[2]["state"] == "off"
 
-    def test_unknown_activity_added(self, plugin):
+    def test_unknown_activity_requests_refresh(self, plugin):
         plugin._activities = {}
-        with patch("plugin.indigo") as mock_indigo:
-            mock_indigo.devices.iter.return_value = []
-            mock_indigo.devices.__getitem__ = lambda self, k: MockIndigoDevice(100, device_type_id="sofabatonHub")
-            plugin._handle_activity_state({"activity_id": 99, "state": "on"})
+        plugin._request_activity_list = MagicMock()
 
-        assert 99 in plugin._activities
-        assert plugin._activities[99]["name"] == "Activity 99"
-        assert plugin._activities[99]["state"] == "on"
+        plugin._handle_activity_state({"activity_id": 99, "state": "on"})
+
+        plugin._request_activity_list.assert_called_once()
+        assert 99 not in plugin._activities
 
 
 class TestKeysListHandling:

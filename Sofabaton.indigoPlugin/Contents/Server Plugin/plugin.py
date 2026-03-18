@@ -294,8 +294,9 @@ class Plugin(indigo.PluginBase):
             else:
                 self._update_hub_active_activity(None)
         else:
-            self.logger.debug("State update for unknown activity %s" % act_id)
-            self._activities[act_id] = {"name": "Activity %d" % act_id, "state": state}
+            self.logger.info("Unknown activity %s detected, requesting updated list" % act_id)
+            self._request_activity_list()
+            return
 
         self._update_all_activity_states()
 
