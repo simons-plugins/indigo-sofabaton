@@ -24,7 +24,7 @@ Controls and monitors Sofabaton hubs. The X2 connects via MQTT (configure via So
 
 - **X2 Transport**: MQTT via paho-mqtt library (bundled in Packages/)
 - **X1/X1S Transport**: TCP binary protocol via `transport_tcp.py`
-- **Discovery**: mDNS via zeroconf — `_sofabaton_hub._udp.local.` (X2), `_sofabaton._tcp.local.` (X1/X1S)
+- **Discovery**: mDNS via zeroconf — `_sofabaton_hub._udp.local.` (X2), `_x1hub._udp.local.` (X1/X1S)
 - **X2 Topics**: `activity/{MAC}/*` and `device/{MAC}/*` where MAC is 12-char uppercase hex
 - **X2 Payloads**: JSON
 - **X1/X1S Protocol**: Binary frames with sync bytes, opcodes, and checksums (see `protocol_const.py`, `frame_codec.py`, `opcode_handlers.py`)

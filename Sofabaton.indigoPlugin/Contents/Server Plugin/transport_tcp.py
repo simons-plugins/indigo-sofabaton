@@ -99,15 +99,15 @@ class TcpTransport:
         if self._socket:
             try:
                 self._socket.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                self.logger.debug("Error closing client socket: %s" % exc)
             self._socket = None
 
         if self._server_socket:
             try:
                 self._server_socket.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                self.logger.debug("Error closing server socket: %s" % exc)
             self._server_socket = None
 
         self._connected = False
@@ -137,7 +137,7 @@ class TcpTransport:
                 self._socket.sendall(frame)
                 time.sleep(COMMAND_DELAY)
                 return True
-            except Exception as exc:
+            except OSError as exc:
                 self.logger.error("Send failed: %s" % exc)
                 self._handle_disconnect()
                 return False
@@ -199,6 +199,7 @@ class TcpTransport:
                 self.logger.info("Listening for X1 hub on port %d" % port)
                 return
             except OSError:
+                sock.close()
                 continue
 
         raise RuntimeError("No available port in range %d-%d" % (
@@ -358,9 +359,17 @@ class TcpTransport:
         if self._socket:
             try:
                 self._socket.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                self.logger.debug("Error closing socket on disconnect: %s" % exc)
             self._socket = None
+
+        # Close the server socket so _reconnect creates a fresh listener
+        if self._server_socket:
+            try:
+                self._server_socket.close()
+            except OSError as exc:
+                self.logger.debug("Error closing server socket on disconnect: %s" % exc)
+            self._server_socket = None
 
         if was_connected and not self._stopping:
             if self._on_connection_change:
@@ -374,7 +383,12 @@ class TcpTransport:
             return
         self.logger.info("Reconnecting to X1 hub...")
         if self._server_socket is None:
-            self._start_listener()
+            try:
+                self._start_listener()
+            except RuntimeError as exc:
+                self.logger.error("Cannot bind listener for reconnect: %s" % exc)
+                threading.Timer(30.0, self._reconnect).start()
+                return
         self._callme_thread = threading.Thread(
             target=self._callme_loop, daemon=True, name="x1-callme"
         )
@@ -390,5 +404,8 @@ class TcpTransport:
             ip = s.getsockname()[0]
             s.close()
             return ip
-        except Exception:
+        except Exception as exc:
+            self.logger.warning(
+                "Could not determine local IP (CALL_ME callback will use 0.0.0.0): %s" % exc
+            )
             return "0.0.0.0"

@@ -213,3 +213,41 @@ class TestTcpTransportCatalog:
             logger=Mock(),
         )
         assert t.commands == {}
+
+
+class TestSendCommandValidation:
+    def test_rejects_device_id_over_255(self):
+        from transport_tcp import TcpTransport
+        t = TcpTransport(hub_ip="192.168.1.50", hub_mac="AABBCCDDEEFF", logger=Mock())
+        t._socket = MagicMock()
+        t._connected = True
+        result = t.send_command(activity_id=1, device_id=256, command_id=0)
+        assert result is False
+
+    def test_rejects_negative_command_id(self):
+        from transport_tcp import TcpTransport
+        t = TcpTransport(hub_ip="192.168.1.50", hub_mac="AABBCCDDEEFF", logger=Mock())
+        t._socket = MagicMock()
+        t._connected = True
+        result = t.send_command(activity_id=1, device_id=0, command_id=-1)
+        assert result is False
+
+    def test_accepts_valid_ids(self):
+        from transport_tcp import TcpTransport
+        t = TcpTransport(hub_ip="192.168.1.50", hub_mac="AABBCCDDEEFF", logger=Mock())
+        t._socket = MagicMock()
+        t._connected = True
+        result = t.send_command(activity_id=101, device_id=5, command_id=1)
+        assert result is True
+
+
+class TestSendFrameErrorHandling:
+    def test_socket_error_triggers_disconnect(self):
+        from transport_tcp import TcpTransport
+        t = TcpTransport(hub_ip="192.168.1.50", hub_mac="AABBCCDDEEFF", logger=Mock())
+        t._socket = MagicMock()
+        t._socket.sendall.side_effect = OSError("Connection reset")
+        t._connected = True
+        result = t.send_frame(0x000A)
+        assert result is False
+        assert t._connected is False

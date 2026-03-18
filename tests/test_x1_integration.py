@@ -20,8 +20,10 @@ class TestOnX1ActivityUpdate:
         plugin._on_x1_activity_update(activities)
 
         assert len(plugin._activities) == 2
-        assert plugin._activities[10] == {"name": "Watch TV", "state": "on"}
-        assert plugin._activities[20] == {"name": "Listen to Music", "state": "off"}
+        assert plugin._activities[10]["name"] == "Watch TV"
+        assert plugin._activities[10]["state"] == "on"
+        assert plugin._activities[20]["name"] == "Listen to Music"
+        assert plugin._activities[20]["state"] == "off"
 
     def test_inactive_activities_get_off_state(self, plugin):
         """Activities without active=True get state 'off'."""

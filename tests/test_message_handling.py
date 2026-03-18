@@ -37,7 +37,8 @@ class TestActivityListHandling:
         assert len(plugin._activities) == 0
 
     def test_replaces_previous_activities(self, plugin):
-        plugin._activities = {99: {"name": "Old", "state": "on"}}
+        # Old activity belongs to the same hub (X2, hub_dev_id=100)
+        plugin._activities = {99: {"name": "Old", "state": "on", "_hub_dev_id": 100}}
 
         with patch("plugin.indigo") as mock_indigo:
             mock_indigo.devices.iter.return_value = []

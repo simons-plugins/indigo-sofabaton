@@ -154,3 +154,20 @@ class TestExtractFrames:
         frames, remaining = extract_frames(b"")
         assert len(frames) == 0
         assert remaining == b""
+
+    def test_extract_frame_with_leading_garbage(self):
+        from frame_codec import build_frame, extract_frames
+        frame = build_frame(OP_ACK_READY)
+        buffer = b'\xDE\xAD' + frame
+        frames, remaining = extract_frames(buffer)
+        assert len(frames) == 1
+        assert remaining == b""
+
+    def test_extract_skips_corrupt_known_opcode_frame(self):
+        from frame_codec import build_frame, extract_frames
+        corrupt = bytearray(build_frame(OP_ACK_READY))
+        corrupt[-1] = (corrupt[-1] + 1) & 0xFF  # corrupt checksum
+        valid = build_frame(OP_REQ_DEVICES)
+        frames, remaining = extract_frames(bytes(corrupt) + valid)
+        # Should recover and find the valid frame
+        assert len(frames) >= 1
