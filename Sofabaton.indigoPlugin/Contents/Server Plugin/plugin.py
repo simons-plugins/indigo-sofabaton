@@ -986,6 +986,51 @@ class Plugin(indigo.PluginBase):
             topic = "activity/%s/favorites_keys_request" % self.hubMac
             self._publish(topic, {"data": {"activity_id": act_id}})
 
+    def listX1Devices(self):
+        """Log all X1 devices from the cached catalog."""
+        if not self._x1_transport:
+            self.logger.error("X1 hub not configured")
+            return
+        devices = self._x1_transport.devices
+        if not devices:
+            self.logger.info("No X1 devices cached. Hub may not be connected yet.")
+            return
+        self.logger.info("=== X1 Devices (%d) ===" % len(devices))
+        for dev_id, dev_info in sorted(devices.items()):
+            self.logger.info("  [%d] %s" % (dev_id, dev_info["name"]))
+        self.logger.info("=== End X1 Devices ===")
+
+    def listX1Commands(self):
+        """Log all X1 commands for all devices, requesting them if not cached."""
+        if not self._x1_transport:
+            self.logger.error("X1 hub not configured")
+            return
+        if not self._x1_transport.is_connected():
+            self.logger.error("X1 hub not connected")
+            return
+
+        devices = self._x1_transport.devices
+        commands = self._x1_transport.commands
+        if not devices:
+            self.logger.info("No X1 devices cached. Requesting device list...")
+            self._x1_transport.request_devices()
+            return
+
+        # If commands are cached, log them; otherwise request them
+        if commands:
+            self.logger.info("=== X1 Commands ===")
+            for dev_id, cmd_list in sorted(commands.items()):
+                dev_name = devices.get(dev_id, {}).get("name", "Device %d" % dev_id)
+                self.logger.info("  Device: %s [%d]" % (dev_name, dev_id))
+                for cmd in cmd_list:
+                    label = cmd.get("label", "")
+                    self.logger.info("    [%d] %s" % (cmd["command_id"], label))
+            self.logger.info("=== End X1 Commands ===")
+        else:
+            self.logger.info("Requesting commands for %d devices..." % len(devices))
+            for dev_id in devices:
+                self._x1_transport.request_commands(dev_id)
+
     def dumpConfig(self):
         self.logger.info("=== Sofabaton Hub Configuration ===")
         self.logger.info("Hub MAC: %s" % self.hubMac)
