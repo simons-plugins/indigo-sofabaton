@@ -12,7 +12,7 @@
 **Sofabaton** - Indigo plugin for Sofabaton X2 universal remote hub
 
 - **Version**: 0.1.0
-- **Bundle ID**: `com.simonsPlugins.indigoplugin.sofabaton`
+- **Bundle ID**: `com.simons-plugins.sofabaton`
 - **Protocol**: MQTT (via paho-mqtt 2.1)
 - **Hub Model**: Sofabaton X2 (native MQTT support)
 

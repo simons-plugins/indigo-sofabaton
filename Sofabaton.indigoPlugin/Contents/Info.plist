@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>PluginVersion</key>
-	<string>2026.0.2</string>
+	<string>2026.0.3</string>
 	<key>ServerApiVersion</key>
 	<string>3.0</string>
 	<key>IwsApiVersion</key>
@@ -11,7 +11,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Sofabaton</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.simonsPlugins.indigoplugin.sofabaton</string>
+	<string>com.simons-plugins.sofabaton</string>
 	<key>CFBundleVersion</key>
 	<string>0.1.0</string>
 	<key>CFBundleURLTypes</key>
