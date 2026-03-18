@@ -9,35 +9,47 @@
 
 ## Plugin Overview
 
-**Sofabaton** - Indigo plugin for Sofabaton X2 universal remote hub
+**Sofabaton** - Indigo plugin for Sofabaton X2 and X1/X1S universal remote hubs
 
-- **Version**: 0.1.0
+- **Version**: 2026.1.0
 - **Bundle ID**: `com.simons-plugins.sofabaton`
-- **Protocol**: MQTT (via paho-mqtt 2.1)
-- **Hub Model**: Sofabaton X2 (native MQTT support)
+- **Protocols**: MQTT (X2 via paho-mqtt 2.1), TCP (X1/X1S via binary protocol)
+- **Hub Models**: Sofabaton X2 (MQTT), X1/X1S (TCP)
 
-Controls and monitors a Sofabaton X2 hub via MQTT. The hub must be configured (via Sofabaton app) to connect to the same MQTT broker.
+Controls and monitors Sofabaton hubs. The X2 connects via MQTT (configure via Sofabaton app → Home Assistant). The X1/X1S connects directly via TCP using a proprietary binary protocol with auto-discovery via mDNS.
 
 ## Architecture
 
 ### Communication
 
-- **Transport**: MQTT via paho-mqtt library (bundled in Packages/)
-- **Discovery**: mDNS `_sofabaton_hub._udp.local.` via zeroconf (bundled)
-- **Topics**: `activity/{MAC}/*` and `device/{MAC}/*` where MAC is 12-char uppercase hex
-- **Payloads**: JSON
+- **X2 Transport**: MQTT via paho-mqtt library (bundled in Packages/)
+- **X1/X1S Transport**: TCP binary protocol via `transport_tcp.py`
+- **Discovery**: mDNS via zeroconf — `_sofabaton_hub._udp.local.` (X2), `_sofabaton._tcp.local.` (X1/X1S)
+- **X2 Topics**: `activity/{MAC}/*` and `device/{MAC}/*` where MAC is 12-char uppercase hex
+- **X2 Payloads**: JSON
+- **X1/X1S Protocol**: Binary frames with sync bytes, opcodes, and checksums (see `protocol_const.py`, `frame_codec.py`, `opcode_handlers.py`)
 - **Hub constraint**: Single-threaded processing, 200ms delay between publishes
 
 ### Device Types
 
 | Type ID | Indigo Type | Description |
 |---------|-------------|-------------|
-| `sofabatonHub` | custom | The hub itself — shows connection status and active activity |
+| `sofabatonHub` | custom | X2 hub — shows connection status and active activity (MQTT) |
+| `sofabatonX1Hub` | custom | X1/X1S hub — shows connection status, active activity, device count (TCP) |
 | `sofabatonActivity` | relay | One per activity — on/off maps to activity active/inactive |
 
-Activity devices are auto-created when the plugin discovers activities from the hub.
+Activity devices are auto-created when the plugin discovers activities from either hub. The plugin routes commands to the correct transport (MQTT or TCP) based on which hub the activity belongs to.
 
-### MQTT Topics Used
+### X1/X1S TCP Protocol Modules
+
+| Module | Description |
+|--------|-------------|
+| `protocol_const.py` | Sync bytes, opcodes, port numbers, mDNS service types |
+| `frame_codec.py` | Build/parse binary frames, extract frames from byte stream |
+| `opcode_handlers.py` | Parse device/activity catalog rows and button records |
+| `transport_tcp.py` | TCP client with reconnect, catalog sync, activity/device commands |
+
+### MQTT Topics Used (X2 only)
 
 **Subscribe (receive from hub):**
 - `activity/{mac}/list` — Activity list response
@@ -76,17 +88,22 @@ Favorite key control uses `device_id` in the `activity_id` field (not the actual
 
 ## Prerequisites
 
+**For X2 hub:**
 1. **MQTT Broker** — Mosquitto, or Indigo's MQTT Broker plugin by FlyingDiver
 2. **Sofabaton X2 hub** configured to connect to your MQTT broker (via Sofabaton app → Add Device → Home Assistant)
+
+**For X1/X1S hub:**
+1. **Sofabaton X1 or X1S hub** on the same network — discovered automatically via mDNS or configured with IP address
 
 ## Available Actions
 
 | Action | Description |
 |--------|-------------|
-| Turn On/Off activity | Activate or deactivate a Sofabaton activity |
-| Send Key Press | Send any of the 27 remote keys to an activity |
-| Send Macro Key | Trigger a macro by key ID |
-| Send Favorite Key | Trigger a favorite by key ID + device ID |
+| Turn On/Off activity | Activate or deactivate a Sofabaton activity (X2 or X1) |
+| Send Key Press | Send any of the 27 remote keys to an activity (X2) |
+| Send Macro Key | Trigger a macro by key ID (X2) |
+| Send Favorite Key | Trigger a favorite by key ID + device ID (X2) |
+| Send Device Command | Send a command to an X1/X1S device (X1 only) |
 | Refresh Activities | Re-query hub for activity list |
 | Stop All Activities | Turn off all active activities |
 
