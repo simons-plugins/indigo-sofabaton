@@ -48,6 +48,20 @@ def _build_catalog_activity_frame(activity_id, name, active=False):
     return bytes(payload)
 
 
+def _build_x1_activity_frame(activity_id, name, active=False):
+    """Build a mock X1 activity row frame.
+    X1 layout: active flag at byte 5, name UTF-8 at 28-58.
+    """
+    payload = bytearray(64)
+    payload[2] = (activity_id >> 16) & 0xFF
+    payload[3] = (activity_id >> 8) & 0xFF
+    payload[4] = activity_id & 0xFF
+    payload[5] = 1 if active else 0
+    encoded = name.encode("utf-8")[:30]
+    payload[28:28 + len(encoded)] = encoded
+    return bytes(payload)
+
+
 def _build_x1_device_frame(device_id, name):
     """Build a mock X1 device row frame.
     X1 uses UTF-8 at payload offset 28-58.
@@ -106,6 +120,19 @@ class TestParseActivityCatalogRow:
         payload = _build_catalog_activity_frame(102, "Music", active=True)
         result = parse_activity_catalog_row(payload, is_x1=False)
         assert result["active"] is True
+
+    def test_x1_extracts_active_from_byte_5(self):
+        from opcode_handlers import parse_activity_catalog_row
+        payload = _build_x1_activity_frame(101, "Watch TV", active=True)
+        result = parse_activity_catalog_row(payload, is_x1=True)
+        assert result["active"] is True
+        assert result["name"] == "Watch TV"
+
+    def test_x1_inactive_from_byte_5(self):
+        from opcode_handlers import parse_activity_catalog_row
+        payload = _build_x1_activity_frame(101, "Watch TV", active=False)
+        result = parse_activity_catalog_row(payload, is_x1=True)
+        assert result["active"] is False
 
 
 class TestParseButtonRecord:

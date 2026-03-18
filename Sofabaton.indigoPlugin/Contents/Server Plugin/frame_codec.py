@@ -5,7 +5,25 @@ Checksum = sum(all preceding bytes) & 0xFF
 """
 import struct
 
-from protocol_const import SYNC0, SYNC1, MIN_FRAME_SIZE, OP_CALL_ME
+from protocol_const import (
+    SYNC0, SYNC1, MIN_FRAME_SIZE, OP_CALL_ME,
+    OP_ACK_READY,
+    OP_CATALOG_ROW_DEVICE, OP_CATALOG_ROW_ACTIVITY,
+    OP_X1_DEVICE, OP_X1_ACTIVITY,
+    OP_DEVBTN_HEADER, OP_DEVBTN_PAGE, OP_DEVBTN_SINGLE, OP_DEVBTN_TAIL,
+)
+
+# Known frame sizes (sync + opcode + payload + checksum) for opcodes
+# where the hub sends fixed-length responses. Used by extract_frames
+# to avoid greedy checksum scanning on large payloads.
+_KNOWN_FRAME_SIZES = {
+    OP_ACK_READY: 5,             # no payload
+    OP_DEVBTN_TAIL: 5,           # no payload
+    OP_CATALOG_ROW_DEVICE: 101,  # 96-byte payload
+    OP_CATALOG_ROW_ACTIVITY: 101,# 96-byte payload
+    OP_X1_DEVICE: 69,            # 64-byte payload
+    OP_X1_ACTIVITY: 69,          # 64-byte payload
+}
 
 
 def build_frame(opcode, payload=b""):
@@ -54,7 +72,10 @@ def extract_frames(buffer):
     """Extract complete frames from a byte buffer.
 
     Returns (list_of_raw_frames, remaining_bytes).
-    Scans for sync bytes and validates checksums to find frame boundaries.
+
+    Uses opcode-based known frame sizes when available to avoid false
+    checksum matches. Falls back to greedy checksum scanning for
+    unknown opcodes (with a minimum frame size of 5 bytes).
     """
     frames = []
     pos = 0
@@ -68,18 +89,39 @@ def extract_frames(buffer):
         if pos + MIN_FRAME_SIZE > len(buffer):
             break
 
-        found = False
-        for end in range(pos + MIN_FRAME_SIZE, len(buffer) + 1):
+        # Read opcode to look up known frame size
+        opcode = (buffer[pos + 2] << 8) | buffer[pos + 3]
+        known_size = _KNOWN_FRAME_SIZES.get(opcode)
+
+        if known_size is not None:
+            # Known opcode: use deterministic size
+            end = pos + known_size
+            if end > len(buffer):
+                break  # incomplete frame
             candidate = buffer[pos:end]
             expected = sum(candidate[:-1]) & 0xFF
             if candidate[-1] == expected:
                 frames.append(candidate)
                 pos = end
-                found = True
-                break
+            else:
+                # Checksum mismatch — skip this sync and try next
+                pos += 2
+        else:
+            # Unknown opcode: fall back to checksum scanning
+            # but skip MIN_FRAME_SIZE candidates to avoid false positives
+            # on tiny frames when the real frame is larger
+            found = False
+            for end in range(pos + MIN_FRAME_SIZE, len(buffer) + 1):
+                candidate = buffer[pos:end]
+                expected = sum(candidate[:-1]) & 0xFF
+                if candidate[-1] == expected:
+                    frames.append(candidate)
+                    pos = end
+                    found = True
+                    break
 
-        if not found:
-            break
+            if not found:
+                break
 
     remaining = buffer[pos:] if pos < len(buffer) else b""
     return frames, remaining

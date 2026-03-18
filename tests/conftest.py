@@ -1,6 +1,7 @@
 """Shared pytest fixtures for Sofabaton plugin tests."""
 import json
 import sys
+import threading
 import time
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch, PropertyMock
@@ -149,6 +150,7 @@ def plugin(default_prefs, mock_logger):
     p._mqtt_lock = MagicMock()
     p._publish_lock = MagicMock()
     p._activities = {}
+    p._activities_lock = threading.Lock()
     p._pending_requests = {}
     p._recent_messages = {}
     p.DEDUP_SECONDS = 5

@@ -55,8 +55,9 @@ class Plugin(indigo.PluginBase):
         self._mqtt_lock = threading.Lock()
         self._publish_lock = threading.Lock()
 
-        # Activity tracking
+        # Activity tracking (accessed from MQTT thread and X1 TCP thread)
         self._activities = {}  # activity_id -> {"name": str, "state": str}
+        self._activities_lock = threading.Lock()
         self._pending_requests = {}  # topic -> callback
 
         # Dedup cache: prevent processing duplicate messages
@@ -269,50 +270,52 @@ class Plugin(indigo.PluginBase):
         activities = payload.get("data", [])
         self.logger.info("Received %d activities from hub" % len(activities))
 
-        self._activities = {}
-        for act in activities:
-            act_id = act.get("activity_id")
-            act_name = act.get("activity_name", "Activity %d" % act_id)
-            act_state = act.get("state", "off")
-            self._activities[act_id] = {"name": act_name, "state": act_state}
+        with self._activities_lock:
+            self._activities = {}
+            for act in activities:
+                act_id = act.get("activity_id")
+                act_name = act.get("activity_name", "Activity %d" % act_id)
+                act_state = act.get("state", "off")
+                self._activities[act_id] = {"name": act_name, "state": act_state}
 
-        # Create or update Indigo devices for each activity
-        self._sync_activity_devices()
+            # Create or update Indigo devices for each activity
+            self._sync_activity_devices()
 
     def _handle_activity_state(self, payload):
         act_id = payload.get("activity_id")
         state = payload.get("state", "off")
 
-        if act_id == 255:
-            # All activities stopped
-            self.logger.info("All activities stopped")
-            for aid in self._activities:
-                self._activities[aid]["state"] = "off"
-            self._update_all_activity_states()
-            self._update_hub_active_activity(None)
-            return
-
-        if act_id in self._activities:
-            old_state = self._activities[act_id]["state"]
-            self._activities[act_id]["state"] = state
-            name = self._activities[act_id]["name"]
-            if old_state != state:
-                self.logger.info("Activity '%s' changed to %s" % (name, state))
-
-            # Only one activity can be on at a time
-            if state == "on":
+        with self._activities_lock:
+            if act_id == 255:
+                # All activities stopped
+                self.logger.info("All activities stopped")
                 for aid in self._activities:
-                    if aid != act_id:
-                        self._activities[aid]["state"] = "off"
-                self._update_hub_active_activity(act_id)
-            else:
+                    self._activities[aid]["state"] = "off"
+                self._update_all_activity_states()
                 self._update_hub_active_activity(None)
-        else:
-            self.logger.info("Unknown activity %s detected, requesting updated list" % act_id)
-            self._request_activity_list()
-            return
+                return
 
-        self._update_all_activity_states()
+            if act_id in self._activities:
+                old_state = self._activities[act_id]["state"]
+                self._activities[act_id]["state"] = state
+                name = self._activities[act_id]["name"]
+                if old_state != state:
+                    self.logger.info("Activity '%s' changed to %s" % (name, state))
+
+                # Only one activity can be on at a time
+                if state == "on":
+                    for aid in self._activities:
+                        if aid != act_id:
+                            self._activities[aid]["state"] = "off"
+                    self._update_hub_active_activity(act_id)
+                else:
+                    self._update_hub_active_activity(None)
+            else:
+                self.logger.info("Unknown activity %s detected, requesting updated list" % act_id)
+                self._request_activity_list()
+                return
+
+            self._update_all_activity_states()
 
     def _handle_keys_list(self, payload, key_type):
         act_id = payload.get("activity_id", payload.get("device_id", "?"))
@@ -544,21 +547,22 @@ class Plugin(indigo.PluginBase):
 
     def _on_x1_activity_update(self, activities):
         """Callback from TcpTransport when activity catalog is updated."""
-        # Convert X1 activity format to plugin's internal format
-        self._activities = {}
-        for act_id, act_info in activities.items():
-            self._activities[act_id] = {
-                "name": act_info["name"],
-                "state": "on" if act_info.get("active", False) else "off",
-            }
-        self.logger.debug("X1 activity update: %d activities" % len(self._activities))
-        self._sync_activity_devices()
-        # Update X1 hub states
-        active_id = None
-        for act_id, act_info in self._activities.items():
-            if act_info["state"] == "on":
-                active_id = act_id
-                break
+        with self._activities_lock:
+            # Convert X1 activity format to plugin's internal format
+            self._activities = {}
+            for act_id, act_info in activities.items():
+                self._activities[act_id] = {
+                    "name": act_info["name"],
+                    "state": "on" if act_info.get("active", False) else "off",
+                }
+            self.logger.debug("X1 activity update: %d activities" % len(self._activities))
+            self._sync_activity_devices()
+            # Update X1 hub states
+            active_id = None
+            for act_id, act_info in self._activities.items():
+                if act_info["state"] == "on":
+                    active_id = act_id
+                    break
         self._update_x1_hub_states(active_id)
 
     def _on_x1_connection_change(self, status):
@@ -958,7 +962,8 @@ class Plugin(indigo.PluginBase):
     def refreshActivitiesMenu(self):
         refreshed = False
         if self._x1_transport and self._x1_transport.is_connected():
-            self.logger.info("Requesting activity list from X1 hub...")
+            self.logger.info("Requesting catalogs from X1 hub...")
+            self._x1_transport.request_devices()
             self._x1_transport.request_activities()
             refreshed = True
         if self._mqtt_connected:

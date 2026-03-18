@@ -111,6 +111,12 @@ class TcpTransport:
             self._server_socket = None
 
         self._connected = False
+
+        # Wait for threads to actually exit before clearing references
+        if self._callme_thread and self._callme_thread.is_alive():
+            self._callme_thread.join(timeout=5.0)
+        if self._receive_thread and self._receive_thread.is_alive():
+            self._receive_thread.join(timeout=5.0)
         self._callme_thread = None
         self._receive_thread = None
         self._recv_buffer = b""
@@ -161,6 +167,12 @@ class TcpTransport:
 
     def send_command(self, activity_id, device_id, command_id, control_block=None):
         """Send a device command via the active activity."""
+        if not (0 <= device_id <= 255):
+            self.logger.error("Device ID %d out of range (0-255)" % device_id)
+            return False
+        if not (0 <= command_id <= 255):
+            self.logger.error("Command ID %d out of range (0-255)" % command_id)
+            return False
         if control_block is None:
             control_block = bytes(7)
         payload = (
@@ -205,6 +217,8 @@ class TcpTransport:
         udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             while not self._stopping and not self._connected:
+                loop_start = time.monotonic()
+
                 packet = build_callme_packet(local_ip, self._listen_port)
                 try:
                     udp_sock.sendto(packet, (self.hub_ip, UDP_CALLME_PORT))
@@ -219,8 +233,11 @@ class TcpTransport:
                 except socket.timeout:
                     pass
 
+                elapsed = time.monotonic() - loop_start
                 jitter = random.uniform(0, CALLME_JITTER)
-                time.sleep(CALLME_INTERVAL - self._server_socket.gettimeout() + jitter)
+                remaining = max(0, CALLME_INTERVAL - elapsed + jitter)
+                if remaining > 0:
+                    time.sleep(remaining)
         finally:
             udp_sock.close()
 

@@ -33,12 +33,15 @@ def parse_activity_catalog_row(payload, is_x1=False):
     Returns {"activity_id": int, "name": str, "active": bool}
     """
     activity_id = (payload[2] << 16) | (payload[3] << 8) | payload[4]
-    active = bool(payload[31]) if len(payload) > 31 else False
 
     if is_x1:
+        # X1 layout: active flag at byte 5, name UTF-8 at 28-58
+        active = bool(payload[5]) if len(payload) > 5 else False
         name_bytes = payload[28:58]
         name = name_bytes.decode("utf-8", errors="replace").rstrip("\x00").strip()
     else:
+        # X1S/X2 layout: active flag at byte 31, name UTF-16BE at 32-92
+        active = bool(payload[31]) if len(payload) > 31 else False
         name_bytes = payload[32:92]
         name = name_bytes.decode("utf-16-be", errors="replace").rstrip("\x00").strip()
 
