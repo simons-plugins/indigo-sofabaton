@@ -1,0 +1,9 @@
+# Python Dependencies for Sofabaton Plugin
+#
+# Indigo automatically installs packages listed here when the plugin loads.
+
+# MQTT client for Sofabaton hub communication
+paho-mqtt==2.1.0
+
+# mDNS discovery for finding Sofabaton hubs on the network
+zeroconf==0.148.0

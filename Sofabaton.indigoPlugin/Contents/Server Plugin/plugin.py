@@ -6,16 +6,8 @@
 ####################
 
 import json
-import os
-import sys
 import time
 import threading
-
-# Add bundled packages to path
-# Indigo sets cwd to "Contents/Server Plugin/" — Packages is at "../Packages/"
-_packages_path = os.path.normpath(os.path.join(os.getcwd(), "..", "Packages"))
-if os.path.isdir(_packages_path) and _packages_path not in sys.path:
-    sys.path.insert(0, _packages_path)
 
 import indigo
 
