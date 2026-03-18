@@ -16,4 +16,9 @@
 		<Name>List Favorite Keys (Event Log)</Name>
 		<CallbackMethod>listFavoriteKeys</CallbackMethod>
 	</MenuItem>
+	<MenuItem id="sep1" type="separator"/>
+	<MenuItem id="dumpConfig">
+		<Name>Dump Hub Config to Log</Name>
+		<CallbackMethod>dumpConfig</CallbackMethod>
+	</MenuItem>
 </MenuItems>

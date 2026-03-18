@@ -403,7 +403,7 @@ class Plugin(indigo.PluginBase):
                     ])
                 else:
                     dev.updateStatesOnServer([
-                        {"key": "activeActivity", "value": "None"},
+                        {"key": "activeActivity", "value": "Off"},
                         {"key": "activeActivityId", "value": 0},
                     ])
             except Exception:
@@ -567,6 +567,28 @@ class Plugin(indigo.PluginBase):
         else:
             self.logger.error("Failed to send favorite key for '%s'" % act_name)
 
+    def sendKeyToCurrentActivity(self, action):
+        # Find the currently active activity
+        active_id = None
+        active_name = None
+        for act_id, act_info in self._activities.items():
+            if act_info["state"] == "on":
+                active_id = act_id
+                active_name = act_info["name"]
+                break
+        if active_id is None:
+            self.logger.error("No activity is currently active")
+            return
+        key_name = action.props.get("keyName", "ok")
+        key_id = KEY_IDS.get(key_name)
+        if key_id is None:
+            self.logger.error("Unknown key name: %s" % key_name)
+            return
+        if self._send_key_control(active_id, key_id):
+            self.logger.info("Sent '%s' key to current activity '%s'" % (key_name, active_name))
+        else:
+            self.logger.error("Failed to send '%s' key" % key_name)
+
     def refreshActivities(self, action):
         self.logger.info("Refreshing activities from hub...")
         self._request_activity_list()
@@ -671,6 +693,23 @@ class Plugin(indigo.PluginBase):
         for act_id in self._activities:
             topic = "activity/%s/favorites_keys_request" % self.hubMac
             self._publish(topic, {"data": {"activity_id": act_id}})
+
+    def dumpConfig(self):
+        self.logger.info("=== Sofabaton Hub Configuration ===")
+        self.logger.info("Hub MAC: %s" % self.hubMac)
+        self.logger.info("MQTT Broker: %s:%d" % (self.brokerHost, self.brokerPort))
+        self.logger.info("Connected: %s" % self._mqtt_connected)
+        self.logger.info("--- Activities (%d) ---" % len(self._activities))
+        for act_id, act_info in sorted(self._activities.items()):
+            self.logger.info("  [%d] %s (state: %s)" % (act_id, act_info["name"], act_info["state"]))
+        self.logger.info("--- Indigo Devices ---")
+        for dev in indigo.devices.iter("self"):
+            self.logger.info("  %s (type: %s, id: %d)" % (dev.name, dev.deviceTypeId, dev.id))
+        self.logger.info("=== End Configuration ===")
+        # Also request device list from hub
+        if self._mqtt_connected:
+            topic = "device/%s/list_request" % self.hubMac
+            self._publish(topic, {"data": "device_list"})
 
     # -------------------------------------------------------------------------
     # Config validation

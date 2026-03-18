@@ -71,6 +71,48 @@
 		</ConfigUI>
 	</Action>
 
+	<Action id="sendKeyToCurrentActivity">
+		<Name>Send Key to Current Activity</Name>
+		<CallbackMethod>sendKeyToCurrentActivity</CallbackMethod>
+		<ConfigUI>
+			<Field id="keyLabel" type="label">
+				<Label>Send a key press to whatever activity is currently active on the hub.</Label>
+			</Field>
+			<Field type="menu" id="keyName" defaultValue="ok">
+				<Label>Key:</Label>
+				<List>
+					<Option value="up">Up</Option>
+					<Option value="down">Down</Option>
+					<Option value="left">Left</Option>
+					<Option value="right">Right</Option>
+					<Option value="ok">OK</Option>
+					<Option value="back">Back</Option>
+					<Option value="home">Home</Option>
+					<Option value="menu">Menu</Option>
+					<Option value="volume_up">Volume Up</Option>
+					<Option value="volume_down">Volume Down</Option>
+					<Option value="channel_up">Channel Up</Option>
+					<Option value="channel_down">Channel Down</Option>
+					<Option value="mute">Mute</Option>
+					<Option value="guide">Guide</Option>
+					<Option value="rewind">Rewind</Option>
+					<Option value="play">Play</Option>
+					<Option value="fast_forward">Fast Forward</Option>
+					<Option value="dvr">DVR</Option>
+					<Option value="pause">Pause</Option>
+					<Option value="exit">Exit</Option>
+					<Option value="red">Red</Option>
+					<Option value="green">Green</Option>
+					<Option value="yellow">Yellow</Option>
+					<Option value="blue">Blue</Option>
+					<Option value="a">A</Option>
+					<Option value="b">B</Option>
+					<Option value="c">C</Option>
+				</List>
+			</Field>
+		</ConfigUI>
+	</Action>
+
 	<Action id="refreshActivities">
 		<Name>Refresh Activities from Hub</Name>
 		<CallbackMethod>refreshActivities</CallbackMethod>

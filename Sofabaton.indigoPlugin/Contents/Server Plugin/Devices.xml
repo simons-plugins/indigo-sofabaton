@@ -11,7 +11,7 @@
 				<Label>12-character hex MAC (e.g. 80F1B298CA98). Found via mDNS discovery or Sofabaton app.</Label>
 			</Field>
 		</ConfigUI>
-		<UiDisplayStateId>connectionStatus</UiDisplayStateId>
+		<UiDisplayStateId>activeActivity</UiDisplayStateId>
 		<States>
 			<State id="connectionStatus">
 				<ValueType>String</ValueType>
