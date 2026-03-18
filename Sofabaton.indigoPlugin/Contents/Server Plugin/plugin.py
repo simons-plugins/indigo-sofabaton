@@ -335,7 +335,7 @@ class Plugin(indigo.PluginBase):
                 create_kwargs["folder"] = self.deviceFolderId
             hub_dev = indigo.device.create(**create_kwargs)
             self._hub_dev_id = hub_dev.id
-            hub_dev.updateStateOnServer("activeActivity", "Off")
+            hub_dev.updateStateOnServer("activeActivity", "off")
             hub_dev.updateStateOnServer("activeActivityId", 0)
             hub_dev.updateStateOnServer("connectionStatus", "disconnected")
             hub_dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
@@ -430,7 +430,7 @@ class Plugin(indigo.PluginBase):
                     ])
                 else:
                     dev.updateStatesOnServer([
-                        {"key": "activeActivity", "value": "Off"},
+                        {"key": "activeActivity", "value": "off"},
                         {"key": "activeActivityId", "value": 0},
                     ])
             except Exception:
