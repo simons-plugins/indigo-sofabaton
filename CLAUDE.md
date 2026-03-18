@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## Release Process
+
+- **Bump `PluginVersion`** in `Sofabaton.indigoPlugin/Contents/Info.plist` with every PR — CI enforces this
+- Version format: `YYYY.R.P` (year.release.patch), e.g. `2026.0.2`
+- A version-check workflow blocks PRs that reuse an existing tag
+- On merge to main, the create-release workflow auto-creates a tagged GitHub release with the `.indigoPlugin.zip` bundle
+
 ## Plugin Overview
 
 **Sofabaton** - Indigo plugin for Sofabaton X2 universal remote hub
