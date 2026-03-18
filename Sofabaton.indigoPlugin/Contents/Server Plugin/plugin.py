@@ -623,13 +623,11 @@ class Plugin(indigo.PluginBase):
             else:
                 self.logger.info("No Sofabaton hubs found. Ensure hub is on the same network.")
 
-        except ImportError:
-            self.logger.error(
-                "zeroconf library not available. Install it or manually enter "
-                "the MAC address in plugin preferences."
-            )
+        except ImportError as exc:
+            self.logger.error("zeroconf import failed: %s" % exc)
         except Exception as exc:
             self.logger.error("mDNS discovery failed: %s" % exc)
+            self.logger.exception(exc)
 
     def refreshActivitiesMenu(self):
         if not self._mqtt_connected:
