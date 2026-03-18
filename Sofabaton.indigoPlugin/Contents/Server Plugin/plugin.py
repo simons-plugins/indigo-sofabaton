@@ -1,8 +1,8 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 ####################
-# Sofabaton X2 Hub - Indigo Plugin
-# Controls Sofabaton X2 universal remote hub via MQTT
+# Sofabaton Hub - Indigo Plugin
+# Controls Sofabaton X2 (MQTT) and X1/X1S (TCP) universal remote hubs
 ####################
 
 import json
@@ -63,8 +63,10 @@ class Plugin(indigo.PluginBase):
         self._recent_messages = {}  # topic -> (payload_hash, timestamp)
         self.DEDUP_SECONDS = 5
 
-        # Hub device reference
+        # Hub device references
         self._hub_dev_id = None
+        self._x1_transport = None
+        self._x1_hub_dev_id = None
 
     # -------------------------------------------------------------------------
     # Plugin lifecycle
@@ -90,9 +92,16 @@ class Plugin(indigo.PluginBase):
 
         self._start_mqtt()
 
+        # Also start X1/X1S transport if configured
+        for dev in indigo.devices.iter("self.sofabatonX1Hub"):
+            self._x1_hub_dev_id = dev.id
+            self._start_x1_transport(dev)
+            break
+
     def shutdown(self):
         self.logger.info("Sofabaton plugin stopping")
         self._stop_mqtt()
+        self._stop_x1_transport()
 
     def deviceStartComm(self, dev):
         super().deviceStartComm(dev)
@@ -108,6 +117,11 @@ class Plugin(indigo.PluginBase):
                 if self._mqtt_connected:
                     self._stop_mqtt()
                     self._start_mqtt()
+
+        elif dev.deviceTypeId == "sofabatonX1Hub":
+            self._x1_hub_dev_id = dev.id
+            if self._x1_transport is None:
+                self._start_x1_transport(dev)
 
     def deviceStopComm(self, dev):
         super().deviceStopComm(dev)
@@ -372,7 +386,9 @@ class Plugin(indigo.PluginBase):
                 props = {
                     "activityId": str(act_id),
                     "activityName": act_info["name"],
-                    "hubDevice": str(self._hub_dev_id) if self._hub_dev_id else "",
+                    "hubDevice": str(
+                        self._x1_hub_dev_id if self._x1_transport else self._hub_dev_id
+                    ) if (self._x1_hub_dev_id or self._hub_dev_id) else "",
                 }
                 try:
                     create_kwargs = {
@@ -481,6 +497,132 @@ class Plugin(indigo.PluginBase):
         return self._publish(topic, {"data": {"activity_id": device_id, "key_id": key_id}})
 
     # -------------------------------------------------------------------------
+    # X1/X1S TCP transport management
+    # -------------------------------------------------------------------------
+
+    def _start_x1_transport(self, dev):
+        """Create and start the TCP transport for an X1/X1S hub device."""
+        hub_ip = dev.pluginProps.get("hubIp", "")
+        hub_mac = dev.pluginProps.get("macAddress", "")
+        hub_model = dev.pluginProps.get("hubModel", "X1S")
+        listen_port = int(dev.pluginProps.get("listenPort", 8200))
+
+        if not hub_ip:
+            self.logger.warning("X1 hub IP not configured, cannot start transport")
+            return
+
+        try:
+            from transport_tcp import TcpTransport
+        except ImportError as exc:
+            self.logger.error("transport_tcp import failed: %s" % exc)
+            return
+
+        self.logger.info("Starting X1 transport for %s hub at %s" % (hub_model, hub_ip))
+        self._x1_transport = TcpTransport(
+            hub_ip=hub_ip,
+            hub_mac=hub_mac,
+            logger=self.logger,
+            listen_port_base=listen_port,
+            hub_model=hub_model,
+            on_activity_update=self._on_x1_activity_update,
+            on_connection_change=self._on_x1_connection_change,
+        )
+        try:
+            self._x1_transport.connect()
+        except Exception as exc:
+            self.logger.error("X1 transport connect failed: %s" % exc)
+            self._x1_transport = None
+
+    def _stop_x1_transport(self):
+        """Stop the X1/X1S TCP transport."""
+        if self._x1_transport is not None:
+            try:
+                self._x1_transport.disconnect()
+            except Exception:
+                pass
+            self._x1_transport = None
+
+    def _on_x1_activity_update(self, activities):
+        """Callback from TcpTransport when activity catalog is updated."""
+        # Convert X1 activity format to plugin's internal format
+        self._activities = {}
+        for act_id, act_info in activities.items():
+            self._activities[act_id] = {
+                "name": act_info["name"],
+                "state": "on" if act_info.get("active", False) else "off",
+            }
+        self.logger.debug("X1 activity update: %d activities" % len(self._activities))
+        self._sync_activity_devices()
+        # Update X1 hub states
+        active_id = None
+        for act_id, act_info in self._activities.items():
+            if act_info["state"] == "on":
+                active_id = act_id
+                break
+        self._update_x1_hub_states(active_id)
+
+    def _on_x1_connection_change(self, status):
+        """Callback from TcpTransport when connection state changes."""
+        self.logger.info("X1 hub connection: %s" % status)
+        if self._x1_hub_dev_id:
+            try:
+                dev = indigo.devices[self._x1_hub_dev_id]
+                dev.updateStateOnServer("connectionStatus", status, uiValue=status.title())
+                if status == "connected":
+                    dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+                else:
+                    dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+            except Exception:
+                pass
+
+    def _update_x1_hub_states(self, active_act_id):
+        """Update X1 hub device states (active activity and device count)."""
+        if not self._x1_hub_dev_id:
+            return
+        try:
+            dev = indigo.devices[self._x1_hub_dev_id]
+            device_count = len(self._x1_transport.devices) if self._x1_transport else 0
+            if active_act_id and active_act_id in self._activities:
+                name = self._activities[active_act_id]["name"]
+                dev.updateStatesOnServer([
+                    {"key": "activeActivity", "value": name},
+                    {"key": "activeActivityId", "value": active_act_id},
+                    {"key": "deviceCount", "value": device_count},
+                ])
+            else:
+                dev.updateStatesOnServer([
+                    {"key": "activeActivity", "value": "off"},
+                    {"key": "activeActivityId", "value": 0},
+                    {"key": "deviceCount", "value": device_count},
+                ])
+        except Exception:
+            pass
+
+    def _get_transport_for_activity(self, dev):
+        """Determine which transport an activity device uses ('x1' or 'mqtt')."""
+        hub_dev_id_str = dev.pluginProps.get("hubDevice", "")
+        if hub_dev_id_str and self._x1_hub_dev_id:
+            try:
+                if int(hub_dev_id_str) == self._x1_hub_dev_id:
+                    return "x1"
+            except (ValueError, TypeError):
+                pass
+        return "mqtt"
+
+    def _send_activity_command(self, act_id, state, transport_type):
+        """Route an activity on/off command to the correct transport."""
+        if transport_type == "x1":
+            if not self._x1_transport or not self._x1_transport.is_connected():
+                self.logger.error("X1 hub not connected")
+                return False
+            if state == "on":
+                return self._x1_transport.activate(act_id)
+            else:
+                return self._x1_transport.deactivate(act_id)
+        else:
+            return self._send_activity_control(act_id, state)
+
+    # -------------------------------------------------------------------------
     # Concurrent thread
     # -------------------------------------------------------------------------
 
@@ -508,9 +650,10 @@ class Plugin(indigo.PluginBase):
 
         act_id = int(dev.pluginProps.get("activityId", 0))
         act_name = dev.pluginProps.get("activityName", "Activity %d" % act_id)
+        transport_type = self._get_transport_for_activity(dev)
 
         if action.deviceAction == indigo.kDeviceAction.TurnOn:
-            if self._send_activity_control(act_id, "on"):
+            if self._send_activity_command(act_id, "on", transport_type):
                 self.logger.info("Activated '%s'" % act_name)
                 dev.updateStateOnServer("onOffState", True)
                 dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
@@ -524,7 +667,7 @@ class Plugin(indigo.PluginBase):
                 self.logger.error("Failed to activate '%s'" % act_name)
 
         elif action.deviceAction == indigo.kDeviceAction.TurnOff:
-            if self._send_activity_control(act_id, "off"):
+            if self._send_activity_command(act_id, "off", transport_type):
                 self.logger.info("Deactivated '%s'" % act_name)
                 dev.updateStateOnServer("onOffState", False)
                 dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
@@ -534,7 +677,7 @@ class Plugin(indigo.PluginBase):
 
         elif action.deviceAction == indigo.kDeviceAction.Toggle:
             new_state = not dev.onState
-            if self._send_activity_control(act_id, "on" if new_state else "off"):
+            if self._send_activity_command(act_id, "on" if new_state else "off", transport_type):
                 self.logger.info("%s '%s'" % ("Activated" if new_state else "Deactivated", act_name))
                 dev.updateStateOnServer("onOffState", new_state)
                 dev.updateStateImageOnServer(
@@ -550,7 +693,11 @@ class Plugin(indigo.PluginBase):
                 self.logger.error("Failed to toggle '%s'" % act_name)
 
         elif action.deviceAction == indigo.kDeviceAction.RequestStatus:
-            self._request_activity_list()
+            if transport_type == "x1":
+                if self._x1_transport and self._x1_transport.is_connected():
+                    self._x1_transport.request_activities()
+            else:
+                self._request_activity_list()
 
     # -------------------------------------------------------------------------
     # Custom action callbacks
@@ -750,11 +897,17 @@ class Plugin(indigo.PluginBase):
                     self._start_mqtt()
 
     def refreshActivitiesMenu(self):
-        if not self._mqtt_connected:
-            self.logger.error("Not connected to MQTT broker")
-            return
-        self.logger.info("Requesting activity list from hub...")
-        self._request_activity_list()
+        refreshed = False
+        if self._x1_transport and self._x1_transport.is_connected():
+            self.logger.info("Requesting activity list from X1 hub...")
+            self._x1_transport.request_activities()
+            refreshed = True
+        if self._mqtt_connected:
+            self.logger.info("Requesting activity list from X2 hub...")
+            self._request_activity_list()
+            refreshed = True
+        if not refreshed:
+            self.logger.error("No hub connections available")
 
     def listMacroKeys(self):
         if not self._mqtt_connected:

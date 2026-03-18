@@ -153,6 +153,8 @@ def plugin(default_prefs, mock_logger):
     p._recent_messages = {}
     p.DEDUP_SECONDS = 5
     p._hub_dev_id = 100
+    p._x1_transport = None
+    p._x1_hub_dev_id = None
     p.logger = mock_logger
     p.pluginPrefs = dict(default_prefs)
 
