@@ -773,6 +773,65 @@ class Plugin(indigo.PluginBase):
         topic = "activity/%s/activity_control_down" % self.hubMac
         self._publish(topic, {"data": {"activity_id": 255, "state": "off"}})
 
+    def sendDeviceCommand(self, action):
+        """Send a device command via the X1/X1S hub."""
+        if not self._x1_transport or not self._x1_transport.is_connected():
+            self.logger.error("X1 hub not connected")
+            return
+
+        try:
+            act_id = int(action.props.get("targetActivityId", 0))
+            dev_id = int(action.props.get("targetDeviceId", 0))
+            cmd_id = int(action.props.get("targetCommandId", 0))
+        except (ValueError, TypeError):
+            self.logger.error("Invalid activity, device, or command ID")
+            return
+
+        if self._x1_transport.send_command(act_id, dev_id, cmd_id):
+            self.logger.info(
+                "Sent command %d to device %d in activity %d" % (cmd_id, dev_id, act_id)
+            )
+        else:
+            self.logger.error(
+                "Failed to send command %d to device %d" % (cmd_id, dev_id)
+            )
+
+    def getX1ActivityList(self, filter="", valuesDict=None, typeId="", targetId=0):
+        """Dynamic list callback: X1 activities."""
+        items = []
+        if self._x1_transport:
+            for act_id, act_info in sorted(self._x1_transport.activities.items()):
+                items.append((str(act_id), act_info["name"]))
+        if not items:
+            items.append(("", "— No activities —"))
+        return items
+
+    def getX1DeviceList(self, filter="", valuesDict=None, typeId="", targetId=0):
+        """Dynamic list callback: X1 devices."""
+        items = []
+        if self._x1_transport:
+            for dev_id, dev_info in sorted(self._x1_transport.devices.items()):
+                items.append((str(dev_id), dev_info["name"]))
+        if not items:
+            items.append(("", "— No devices —"))
+        return items
+
+    def getX1CommandList(self, filter="", valuesDict=None, typeId="", targetId=0):
+        """Dynamic list callback: X1 commands (filtered by selected device)."""
+        items = []
+        if self._x1_transport and valuesDict:
+            try:
+                dev_id = int(valuesDict.get("targetDeviceId", 0))
+            except (ValueError, TypeError):
+                dev_id = 0
+            commands = self._x1_transport.commands.get(dev_id, [])
+            for cmd in commands:
+                label = cmd.get("label", "Command %d" % cmd["command_id"])
+                items.append((str(cmd["command_id"]), label))
+        if not items:
+            items.append(("", "— No commands —"))
+        return items
+
     # -------------------------------------------------------------------------
     # Menu item callbacks
     # -------------------------------------------------------------------------

@@ -132,4 +132,26 @@
 			</Field>
 		</ConfigUI>
 	</Action>
+
+	<Action id="sendDeviceCommand">
+		<Name>Send Device Command (X1/X1S)</Name>
+		<CallbackMethod>sendDeviceCommand</CallbackMethod>
+		<ConfigUI>
+			<Field id="cmdLabel" type="label">
+				<Label>Send a specific device command via the X1/X1S hub. Select activity, device, and command.</Label>
+			</Field>
+			<Field type="menu" id="targetActivityId" defaultValue="">
+				<Label>Activity:</Label>
+				<List class="self" filter="" method="getX1ActivityList" dynamicReload="true"/>
+			</Field>
+			<Field type="menu" id="targetDeviceId" defaultValue="">
+				<Label>Device:</Label>
+				<List class="self" filter="" method="getX1DeviceList" dynamicReload="true"/>
+			</Field>
+			<Field type="menu" id="targetCommandId" defaultValue="">
+				<Label>Command:</Label>
+				<List class="self" filter="" method="getX1CommandList" dynamicReload="true"/>
+			</Field>
+		</ConfigUI>
+	</Action>
 </Actions>
