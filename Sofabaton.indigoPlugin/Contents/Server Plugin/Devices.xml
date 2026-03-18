@@ -31,6 +31,56 @@
 		</States>
 	</Device>
 
+	<!-- The Sofabaton X1/X1S Hub (TCP direct connection) -->
+	<Device type="custom" id="sofabatonX1Hub" allowUserCreation="false">
+		<Name>Sofabaton X1 Hub</Name>
+		<ConfigUI>
+			<Field id="hubIp" type="textfield" defaultValue="">
+				<Label>Hub IP Address:</Label>
+			</Field>
+			<Field id="macAddress" type="textfield" defaultValue="" hidden="true">
+				<Label>Hub MAC Address:</Label>
+			</Field>
+			<Field id="hubModel" type="textfield" defaultValue="" hidden="true">
+				<Label>Hub Model:</Label>
+			</Field>
+			<Field id="listenPort" type="textfield" defaultValue="8200">
+				<Label>Listen Port Base:</Label>
+			</Field>
+			<Field id="portHelp" type="label" fontSize="small" fontColor="darkgray" alignWithControl="true">
+				<Label>TCP port to listen on for hub callback (default 8200). Must be reachable from hub.</Label>
+			</Field>
+		</ConfigUI>
+		<UiDisplayStateId>activeActivity</UiDisplayStateId>
+		<States>
+			<State id="connectionStatus">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Connection Status</TriggerLabel>
+				<ControlPageLabel>Connection</ControlPageLabel>
+			</State>
+			<State id="activeActivity">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Active Activity Changed</TriggerLabel>
+				<ControlPageLabel>Active Activity</ControlPageLabel>
+			</State>
+			<State id="activeActivityId">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Active Activity ID Changed</TriggerLabel>
+				<ControlPageLabel>Active Activity ID</ControlPageLabel>
+			</State>
+			<State id="hubModel">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Hub Model</TriggerLabel>
+				<ControlPageLabel>Model</ControlPageLabel>
+			</State>
+			<State id="deviceCount">
+				<ValueType>Integer</ValueType>
+				<TriggerLabel>Device Count Changed</TriggerLabel>
+				<ControlPageLabel>Devices</ControlPageLabel>
+			</State>
+		</States>
+	</Device>
+
 	<!-- An Activity on the Sofabaton (e.g. "Watch TV", "Listen to Music") -->
 	<Device type="relay" id="sofabatonActivity" allowUserCreation="false">
 		<Name>Sofabaton Activity</Name>
