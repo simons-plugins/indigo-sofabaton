@@ -47,6 +47,7 @@ class Plugin(indigo.PluginBase):
         self.mqttPassword = pluginPrefs.get("mqttPassword", "")
         self.hubMac = pluginPrefs.get("hubMac", "").upper().replace(":", "").replace("-", "")
         self.autoDiscover = pluginPrefs.get("autoDiscover", True)
+        self.deviceFolderId = int(pluginPrefs.get("deviceFolder", 0))
 
         # MQTT client
         self._mqtt = None
@@ -350,12 +351,15 @@ class Plugin(indigo.PluginBase):
                     "hubDevice": str(self._hub_dev_id) if self._hub_dev_id else "",
                 }
                 try:
-                    new_dev = indigo.device.create(
-                        protocol=indigo.kProtocol.Plugin,
-                        deviceTypeId="sofabatonActivity",
-                        name=dev_name,
-                        props=props,
-                    )
+                    create_kwargs = {
+                        "protocol": indigo.kProtocol.Plugin,
+                        "deviceTypeId": "sofabatonActivity",
+                        "name": dev_name,
+                        "props": props,
+                    }
+                    if self.deviceFolderId:
+                        create_kwargs["folder"] = self.deviceFolderId
+                    new_dev = indigo.device.create(**create_kwargs)
                     is_on = act_info["state"] == "on"
                     new_dev.updateStateOnServer("onOffState", is_on)
                     if is_on:
@@ -712,6 +716,17 @@ class Plugin(indigo.PluginBase):
             self._publish(topic, {"data": "device_list"})
 
     # -------------------------------------------------------------------------
+    # Dynamic list callbacks
+    # -------------------------------------------------------------------------
+
+    def getDeviceFolderList(self, filter="", valuesDict=None, typeId="", targetId=0):
+        folder_list = [(0, "— No Folder —")]
+        for folder in indigo.devices.folders:
+            folder_list.append((folder.id, folder.name))
+        folder_list.sort(key=lambda x: x[1].lower() if x[0] != 0 else "")
+        return folder_list
+
+    # -------------------------------------------------------------------------
     # Config validation
     # -------------------------------------------------------------------------
 
@@ -759,6 +774,7 @@ class Plugin(indigo.PluginBase):
         new_mac = valuesDict.get("hubMac", "").upper().replace(":", "").replace("-", "")
         self.logger.info("Config saved — broker: %s:%d, MAC: '%s'" % (new_host, new_port, new_mac))
         self.autoDiscover = valuesDict.get("autoDiscover", True)
+        self.deviceFolderId = int(valuesDict.get("deviceFolder", 0))
 
         reconnect_needed = (
             new_host != self.brokerHost

@@ -41,6 +41,15 @@
 
 	<Field id="sep2" type="separator"/>
 
+	<Field id="deviceLabel" type="label" fontColor="darkgray" fontSize="small">
+		<Label>Device Settings</Label>
+	</Field>
+
+	<Field id="deviceFolder" type="menu" defaultValue="0">
+		<Label>Create devices in folder:</Label>
+		<List class="self" filter="" method="getDeviceFolderList" dynamicReload="true"/>
+	</Field>
+
 	<Field id="autoDiscover" type="checkbox" defaultValue="true">
 		<Label>Auto-discover activities on connect: </Label>
 	</Field>
