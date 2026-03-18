@@ -80,10 +80,13 @@ class Plugin(indigo.PluginBase):
             )
             return
 
-        # Find existing hub device
+        # Find or create hub device
         for dev in indigo.devices.iter("self.sofabatonHub"):
             self._hub_dev_id = dev.id
             break
+
+        if not self._hub_dev_id:
+            self._create_hub_device()
 
         self._start_mqtt()
 
@@ -319,6 +322,26 @@ class Plugin(indigo.PluginBase):
     # -------------------------------------------------------------------------
     # Indigo device synchronisation
     # -------------------------------------------------------------------------
+
+    def _create_hub_device(self):
+        try:
+            create_kwargs = {
+                "protocol": indigo.kProtocol.Plugin,
+                "deviceTypeId": "sofabatonHub",
+                "name": "Sofabaton Hub",
+                "props": {"macAddress": self.hubMac},
+            }
+            if self.deviceFolderId:
+                create_kwargs["folder"] = self.deviceFolderId
+            hub_dev = indigo.device.create(**create_kwargs)
+            self._hub_dev_id = hub_dev.id
+            hub_dev.updateStateOnServer("activeActivity", "Off")
+            hub_dev.updateStateOnServer("activeActivityId", 0)
+            hub_dev.updateStateOnServer("connectionStatus", "disconnected")
+            hub_dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+            self.logger.info("Created hub device: %s" % hub_dev.name)
+        except Exception as exc:
+            self.logger.error("Failed to create hub device: %s" % exc)
 
     def _sync_activity_devices(self):
         existing = {}
