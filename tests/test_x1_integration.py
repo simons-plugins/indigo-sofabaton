@@ -388,3 +388,103 @@ class TestSendActivityCommand:
 
         assert result is True
         plugin._send_activity_control.assert_called_once_with(10, "on")
+
+
+class TestDiscoveredHubDispatch:
+    """_create_discovered_hub must route X1/X1S hubs to the sofabatonX1Hub
+    device type and X2 hubs to the MQTT path. A regression here silently
+    creates the wrong device type for discovered hubs."""
+
+    def _hub_info(self, hver, ip="192.168.1.50"):
+        return {
+            "name": "hub",
+            "host": ip + ".",
+            "port": 8102,
+            "mac": "AABBCCDDEEFF",
+            "properties": {"HVER": hver, "MAC": "AABBCCDDEEFF"},
+            "stype": "_x1hub._udp.local.",
+        }
+
+    def test_hver_1_creates_x1_device(self, plugin):
+        """HVER=1 ⇒ X1 model ⇒ sofabatonX1Hub device created via indigo.device.create."""
+        import indigo  # mocked via conftest
+        indigo.devices.iter = MagicMock(return_value=iter([]))
+        indigo.device.create = MagicMock(return_value=MockIndigoDevice(
+            999, name="Sofabaton X1 Hub", device_type_id="sofabatonX1Hub"
+        ))
+
+        plugin._create_discovered_hub(self._hub_info("1"), "AABBCCDDEEFF")
+
+        indigo.device.create.assert_called_once()
+        kwargs = indigo.device.create.call_args[1]
+        assert kwargs["deviceTypeId"] == "sofabatonX1Hub"
+        assert kwargs["props"]["hubModel"] == "X1"
+        assert kwargs["props"]["hubIp"] == "192.168.1.50"
+        assert kwargs["props"]["macAddress"] == "AABBCCDDEEFF"
+
+    def test_hver_2_creates_x1s_device(self, plugin):
+        """HVER=2 ⇒ X1S model ⇒ sofabatonX1Hub device with hubModel=X1S."""
+        import indigo
+        indigo.devices.iter = MagicMock(return_value=iter([]))
+        indigo.device.create = MagicMock(return_value=MockIndigoDevice(
+            999, name="Sofabaton X1S Hub", device_type_id="sofabatonX1Hub"
+        ))
+
+        plugin._create_discovered_hub(self._hub_info("2"), "AABBCCDDEEFF")
+
+        indigo.device.create.assert_called_once()
+        kwargs = indigo.device.create.call_args[1]
+        assert kwargs["deviceTypeId"] == "sofabatonX1Hub"
+        assert kwargs["props"]["hubModel"] == "X1S"
+
+    def test_hver_3_routes_to_x2_mqtt_path(self, plugin):
+        """HVER=3 ⇒ X2 model ⇒ MQTT path, NOT an X1 device creation."""
+        import indigo
+        indigo.device.create = MagicMock()
+
+        plugin.hubMac = "000000000000"
+        plugin._mqtt_connected = False
+        plugin._start_mqtt = MagicMock()
+
+        plugin._create_discovered_hub(self._hub_info("3"), "AABBCCDDEEFF")
+
+        indigo.device.create.assert_not_called()
+        assert plugin.hubMac == "AABBCCDDEEFF"
+        plugin._start_mqtt.assert_called_once()
+
+    def test_existing_x1_hub_updates_ip_instead_of_creating(self, plugin):
+        """If an X1 hub already exists with the same MAC, update its IP
+        and do NOT call indigo.device.create."""
+        import indigo
+        existing = MockIndigoDevice(
+            500,
+            name="Existing X1",
+            device_type_id="sofabatonX1Hub",
+            plugin_props={
+                "macAddress": "AABBCCDDEEFF",
+                "hubIp": "192.168.1.10",
+                "hubModel": "X1S",
+            },
+        )
+        indigo.devices.iter = MagicMock(return_value=iter([existing]))
+        indigo.device.create = MagicMock()
+
+        plugin._create_discovered_hub(
+            self._hub_info("2", ip="192.168.1.99"), "AABBCCDDEEFF"
+        )
+
+        indigo.device.create.assert_not_called()
+        assert existing.pluginProps["hubIp"] == "192.168.1.99"
+
+    def test_unknown_hver_does_not_create_x1_device(self, plugin):
+        """Unknown firmware ⇒ falls through to X2 MQTT path.
+        Must not silently create the wrong X1 device type."""
+        import indigo
+        indigo.device.create = MagicMock()
+        plugin.hubMac = "000000000000"
+        plugin._mqtt_connected = False
+        plugin._start_mqtt = MagicMock()
+
+        plugin._create_discovered_hub(self._hub_info("99"), "AABBCCDDEEFF")
+
+        indigo.device.create.assert_not_called()

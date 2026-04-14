@@ -73,9 +73,10 @@ def extract_frames(buffer):
 
     Returns (list_of_raw_frames, remaining_bytes).
 
-    Uses opcode-based known frame sizes when available to avoid false
-    checksum matches. Falls back to greedy checksum scanning for
-    unknown opcodes (with a minimum frame size of 5 bytes).
+    Only frames whose opcode appears in _KNOWN_FRAME_SIZES are extracted.
+    Unknown opcodes advance the scan past the sync bytes without inventing
+    a frame boundary — a coincidental checksum byte inside a legitimate
+    longer payload must not be able to produce a false short frame.
     """
     frames = []
     pos = 0
@@ -89,47 +90,41 @@ def extract_frames(buffer):
         if pos + MIN_FRAME_SIZE > len(buffer):
             break
 
-        # Read opcode to look up known frame size
         opcode = (buffer[pos + 2] << 8) | buffer[pos + 3]
         known_size = _KNOWN_FRAME_SIZES.get(opcode)
 
-        if known_size is not None:
-            # Known opcode: use deterministic size
-            end = pos + known_size
-            if end > len(buffer):
-                break  # incomplete frame
-            candidate = buffer[pos:end]
-            expected = sum(candidate[:-1]) & 0xFF
-            if candidate[-1] == expected:
-                frames.append(candidate)
-                pos = end
-            else:
-                # Checksum mismatch — skip this sync and try next
-                pos += 2
-        else:
-            # Unknown opcode: fall back to checksum scanning
-            # but skip MIN_FRAME_SIZE candidates to avoid false positives
-            # on tiny frames when the real frame is larger
-            found = False
-            for end in range(pos + MIN_FRAME_SIZE, len(buffer) + 1):
-                candidate = buffer[pos:end]
-                expected = sum(candidate[:-1]) & 0xFF
-                if candidate[-1] == expected:
-                    frames.append(candidate)
-                    pos = end
-                    found = True
-                    break
+        if known_size is None:
+            # Unknown opcode: advance past the sync and keep scanning.
+            # We deliberately do NOT greedily search for a matching checksum:
+            # that is O(N^2) and can mis-frame on coincidental checksum bytes.
+            pos += 2
+            continue
 
-            if not found:
-                break
+        end = pos + known_size
+        if end > len(buffer):
+            break  # incomplete frame — wait for more data
+
+        candidate = buffer[pos:end]
+        expected = sum(candidate[:-1]) & 0xFF
+        if candidate[-1] == expected:
+            frames.append(candidate)
+            pos = end
+        else:
+            # Checksum mismatch — skip this sync and try next
+            pos += 2
 
     remaining = buffer[pos:] if pos < len(buffer) else b""
     return frames, remaining
 
 
 def _find_sync(buffer, start):
-    """Find the next sync byte pair starting from offset."""
-    for i in range(start, len(buffer) - 1):
+    """Find the next sync byte pair starting from offset.
+
+    Safe against a lone SYNC0 at the final byte (where SYNC1 would be out
+    of range) — the caller will get back -1 and wait for more data.
+    """
+    end = len(buffer) - 1
+    for i in range(start, end):
         if buffer[i] == SYNC0 and buffer[i + 1] == SYNC1:
             return i
     return -1

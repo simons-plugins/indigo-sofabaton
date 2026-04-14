@@ -536,7 +536,7 @@ class Plugin(indigo.PluginBase):
         try:
             self._x1_transport.connect()
         except Exception as exc:
-            self.logger.error("X1 transport connect failed: %s" % exc)
+            self.logger.exception("X1 transport connect failed: %s" % exc)
             self._x1_transport = None
 
     def _stop_x1_transport(self):
@@ -770,8 +770,9 @@ class Plugin(indigo.PluginBase):
             return
 
         # X1/X1S activities don't use the MQTT key-id scheme — route users to
-        # the Send Device Command action, which is the X1 equivalent.
-        if active_hub == self._x1_hub_dev_id:
+        # the Send Device Command action, which is the X1 equivalent. Guard
+        # against the None==None case when no X1 hub is configured at all.
+        if self._x1_hub_dev_id is not None and active_hub == self._x1_hub_dev_id:
             self.logger.error(
                 "'Send Key to Current Activity' is X2-only. "
                 "For X1/X1S activities use the 'Send Device Command' action."
@@ -930,8 +931,7 @@ class Plugin(indigo.PluginBase):
         except ImportError as exc:
             self.logger.error("zeroconf import failed: %s" % exc)
         except Exception as exc:
-            self.logger.error("mDNS discovery failed: %s" % exc)
-            self.logger.exception(exc)
+            self.logger.exception("mDNS discovery failed: %s" % exc)
 
     def _create_discovered_hub(self, hub_info, mac):
         """Create or update an Indigo device for a discovered hub."""
@@ -981,7 +981,7 @@ class Plugin(indigo.PluginBase):
                 new_dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
                 self.logger.info("Created %s hub device: %s (IP: %s)" % (model, dev_name, ip))
             except Exception as exc:
-                self.logger.error("Failed to create X1 hub device: %s" % exc)
+                self.logger.exception("Failed to create X1 hub device: %s" % exc)
 
         else:
             # X2 hub — uses MQTT transport
