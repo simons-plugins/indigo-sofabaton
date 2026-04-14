@@ -39,19 +39,6 @@
 		<Label>12-character uppercase hex MAC (e.g. 80F1B298CA98). Used in MQTT topic paths.</Label>
 	</Field>
 
-	<Field id="sep1b" type="separator"/>
-
-	<Field id="x1Label" type="label" fontColor="darkgray" fontSize="small">
-		<Label>Sofabaton X1/X1S (TCP)</Label>
-	</Field>
-
-	<Field id="x1ListenPort" type="textfield" defaultValue="8200">
-		<Label>X1 Listen Port Base:</Label>
-	</Field>
-	<Field id="x1PortHelp" type="label" fontSize="small" fontColor="darkgray" alignWithControl="true">
-		<Label>TCP port for X1/X1S hub callback (default 8200). X1 hubs are discovered automatically via mDNS.</Label>
-	</Field>
-
 	<Field id="sep2" type="separator"/>
 
 	<Field id="deviceLabel" type="label" fontColor="darkgray" fontSize="small">

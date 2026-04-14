@@ -757,14 +757,27 @@ class Plugin(indigo.PluginBase):
         # Find the currently active activity
         active_id = None
         active_name = None
-        for act_id, act_info in self._activities.items():
-            if act_info["state"] == "on":
-                active_id = act_id
-                active_name = act_info["name"]
-                break
+        active_hub = None
+        with self._activities_lock:
+            for act_id, act_info in self._activities.items():
+                if act_info["state"] == "on":
+                    active_id = act_id
+                    active_name = act_info["name"]
+                    active_hub = act_info.get("_hub_dev_id")
+                    break
         if active_id is None:
             self.logger.error("No activity is currently active")
             return
+
+        # X1/X1S activities don't use the MQTT key-id scheme — route users to
+        # the Send Device Command action, which is the X1 equivalent.
+        if active_hub == self._x1_hub_dev_id:
+            self.logger.error(
+                "'Send Key to Current Activity' is X2-only. "
+                "For X1/X1S activities use the 'Send Device Command' action."
+            )
+            return
+
         key_name = action.props.get("keyName", "ok")
         key_id = KEY_IDS.get(key_name)
         if key_id is None:
@@ -781,8 +794,24 @@ class Plugin(indigo.PluginBase):
 
     def stopAllActivities(self, action):
         self.logger.info("Stopping all activities")
-        topic = "activity/%s/activity_control_down" % self.hubMac
-        self._publish(topic, {"data": {"activity_id": 255, "state": "off"}})
+
+        # X2 path: single broadcast via MQTT (activity_id 255 = all).
+        if self._mqtt_connected and self.hubMac:
+            topic = "activity/%s/activity_control_down" % self.hubMac
+            self._publish(topic, {"data": {"activity_id": 255, "state": "off"}})
+
+        # X1/X1S path: no broadcast equivalent, so iterate live X1 activities
+        # and deactivate each one that is currently on.
+        if self._x1_transport and self._x1_transport.is_connected():
+            with self._activities_lock:
+                x1_active = [
+                    aid for aid, info in self._activities.items()
+                    if info.get("_hub_dev_id") == self._x1_hub_dev_id
+                    and info.get("state") == "on"
+                ]
+            for aid in x1_active:
+                if not self._x1_transport.deactivate(aid):
+                    self.logger.error("Failed to deactivate X1 activity %s" % aid)
 
     def sendDeviceCommand(self, action):
         """Send a device command via the X1/X1S hub."""
