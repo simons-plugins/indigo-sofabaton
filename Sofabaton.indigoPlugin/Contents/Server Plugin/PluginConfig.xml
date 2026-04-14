@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <PluginConfig>
 	<Field id="topLabel" type="label" fontSize="small" fontColor="darkgray">
-		<Label>Configure MQTT broker connection. The Sofabaton X2 hub must be configured to connect to the same broker.</Label>
+		<Label>Configure connection to Sofabaton hubs. X2 uses MQTT; X1/X1S use direct TCP. Both hub types can be used simultaneously.</Label>
 	</Field>
 
 	<Field id="sep0" type="separator"/>

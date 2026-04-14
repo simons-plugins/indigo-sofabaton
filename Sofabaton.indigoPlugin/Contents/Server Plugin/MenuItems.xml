@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <MenuItems>
 	<MenuItem id="discoverHub">
-		<Name>Discover Hub (mDNS)</Name>
+		<Name>Discover Hubs (mDNS)</Name>
 		<CallbackMethod>discoverHub</CallbackMethod>
 	</MenuItem>
 	<MenuItem id="refreshActivities">
@@ -17,6 +17,15 @@
 		<CallbackMethod>listFavoriteKeys</CallbackMethod>
 	</MenuItem>
 	<MenuItem id="sep1" type="separator"/>
+	<MenuItem id="listX1Devices">
+		<Name>List X1 Devices (Event Log)</Name>
+		<CallbackMethod>listX1Devices</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="listX1Commands">
+		<Name>List X1 Commands (Event Log)</Name>
+		<CallbackMethod>listX1Commands</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="sep2" type="separator"/>
 	<MenuItem id="dumpConfig">
 		<Name>Dump Hub Config to Log</Name>
 		<CallbackMethod>dumpConfig</CallbackMethod>
